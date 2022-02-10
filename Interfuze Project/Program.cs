@@ -33,41 +33,74 @@ namespace Interfuze_Project
     {
         static void Main(string[] args)
         {
-            List<Device> device_records;
-            List<Data> data_records;
-            List<Data> more_data_records;
+            List<Device> device_records = new List<Device>();
+            List<Data> data_records = new List<Data>();
+            string device_folder = "";
+            string data_folder = "";
             
             var conf = new CsvConfiguration(CultureInfo.InvariantCulture)
             {
                 HeaderValidated = null,
                 MissingFieldFound = null,
             };
-
             
-            using (var reader = new StreamReader(@"csv/Devices.csv"))
-            using (var csv = new CsvReader(reader, conf))
+            /* Get folder where device csv's are saved from user */
+            bool device_folder_exists = false;
+            
+            while (!device_folder_exists)
             {
-                device_records = csv.GetRecords<Device>().ToList();
+                Console.Write("Please enter path to Device folder:");
+                device_folder = Console.ReadLine();
+                if (Directory.Exists(device_folder))
+                {
+                    device_folder_exists = true;
+                }
+            }
+            string[] device_files = 
+                Directory.GetFiles(device_folder, "*.csv", SearchOption.AllDirectories);
+            
+            /* Get folder where data csv's are saved from user */
+            bool data_folder_exists = false;
+            
+            while (!data_folder_exists)
+            {
+                Console.Write("Please enter path to Data folder:");
+                data_folder = Console.ReadLine();
+                if (Directory.Exists(data_folder))
+                {
+                    data_folder_exists = true;
+                }
+            }
+            string[] data_files = 
+                Directory.GetFiles(data_folder, "*.csv", SearchOption.AllDirectories);
+            
+            /* Read device information from csv's */
+            for (int i = 0; i < device_files.Length; i++)
+            {
+                using (var reader = new StreamReader($@"{device_files[i]}"))
+                using (var csv = new CsvReader(reader, conf))
+                {
+                    device_records = device_records.Concat(csv.GetRecords<Device>().ToList()).ToList();
+                }
             }
             
-            using (var reader = new StreamReader(@"csv/Data2.csv"))
-            using (var csv = new CsvReader(reader, conf))
+            /* Read rainfall data information from csv's */
+            for (int i = 0; i < data_files.Length; i++)
             {
-                data_records = csv.GetRecords<Data>().ToList();
+                using (var reader = new StreamReader($@"{data_files[i]}"))
+                using (var csv = new CsvReader(reader, conf))
+                {
+                    data_records = data_records.Concat(csv.GetRecords<Data>().ToList()).ToList();
+                }
             }
             
-            using (var reader = new StreamReader(@"csv/Data1.csv"))
-            using (var csv = new CsvReader(reader, conf))
-            {
-                more_data_records = csv.GetRecords<Data>().ToList();
-            }
-            
-            more_data_records.ForEach(item => data_records.Add(item));
+            /* Sort rainfall data by if it's been more than 4 hours since data was collected or not */
             data_records.Sort((x, y) => x.time.CompareTo(y.time));
             DateTime now = data_records[data_records.Count - 1].time;
             DateTime four_hours_ago = now.AddHours(-4);
             var filtered_records = data_records.Where(o => o.time >= four_hours_ago).ToList();
-
+            
+            /* Save rainfall data onto Device objects */
             for (int i = 0; i < data_records.Count; i++)
             {
                 for (int j = 0; j < device_records.Count; j++)
@@ -90,7 +123,8 @@ namespace Interfuze_Project
                 }
 
             }
-
+            
+            /* Display rainfall information */
             foreach (var dev in device_records)
             {
                 if (dev != null && dev.deviceId != null)
@@ -110,7 +144,7 @@ namespace Interfuze_Project
                     {
                         Console.ForegroundColor = ConsoleColor.Yellow;
                     }
-                    Console.WriteLine($"{dev.name} (in {dev.location}): Avg Rainfall - {Math.Round(current_avg, 2)}; Trend - {trend}; ");
+                    Console.WriteLine($"{dev.name} (in {dev.location}): Avg Rainfall - {Math.Round(current_avg, 2)}mm; Trend - {trend}; ");
                 }
             }
         }
